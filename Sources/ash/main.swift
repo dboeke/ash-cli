@@ -17,7 +17,7 @@ enum Style {
 
 func err(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
 
-let version = "0.1.6"
+let version = "0.1.7"
 
 func printUsage() {
     print("""
