@@ -81,14 +81,38 @@ enum Interpreter {
     }
 
     /// Produce a Plan for a request, given a gathered environment context block.
+    ///
+    /// If the command uses a GNU-ism that fails on macOS's BSD userland, we don't
+    /// just surface it: we feed the exact problem back to the same session and ask
+    /// for a corrected command, re-checking each time. Reusing the session keeps
+    /// the request and the bad attempt in context so the model fixes that command
+    /// rather than starting over. The lint in `main` is the fallback for the rare
+    /// case repair can't fix within a couple of tries.
     static func plan(for request: String, context: String) async throws -> Interpretation {
         let session = LanguageModelSession(instructions: baseInstructions)
-        let prompt = "\(context)\nRequest: \(request)"
-        let response = try await session.respond(to: prompt, generating: Plan.self, options: options)
+        var response = try await session.respond(
+            to: "\(context)\nRequest: \(request)", generating: Plan.self, options: options)
+
         var tokens: Int? = nil
-        if #available(macOS 27.0, *) {
-            tokens = response.usage.totalTokenCount
+        if #available(macOS 27.0, *) { tokens = response.usage.totalTokenCount }
+
+        // At most two follow-ups asking the model to fix a command that won't run
+        // on BSD. Each names the specific problem, so the deterministic (greedy)
+        // model gets a genuinely different instruction rather than a blind retry.
+        var attempts = 0
+        while attempts < 2,
+              let problem = Portability.gnuism(in: response.content.command.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            attempts += 1
+            let fix = """
+            That command does not run on macOS: \(problem). Rewrite it to do exactly \
+            what the request asked, using BSD-correct syntax. Output one command only.
+            """
+            response = try await session.respond(to: fix, generating: Plan.self, options: options)
+            if #available(macOS 27.0, *) {
+                tokens = (tokens ?? 0) + response.usage.totalTokenCount
+            }
         }
+
         return Interpretation(plan: response.content, tokens: tokens)
     }
 }
