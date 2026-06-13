@@ -2,6 +2,7 @@
 /// explanation are always displayed; the action decides what happens beyond that.
 enum Action: String, Codable, CaseIterable {
     case run      // display, then execute
+    case inject   // display, then load the command at your shell prompt
     case confirm  // display, ask y/n, then execute if confirmed
     case copy     // display, then copy to clipboard (no execute)
     case print    // display only
@@ -10,6 +11,7 @@ enum Action: String, Codable, CaseIterable {
     static func parse(_ s: String) -> Action? {
         switch s.lowercased() {
         case "run", "execute", "exec", "r": return .run
+        case "inject", "prompt", "line", "edit": return .inject
         case "confirm", "ask", "i": return .confirm
         case "copy", "print-and-copy", "pc", "c": return .copy
         case "print", "show", "p": return .print

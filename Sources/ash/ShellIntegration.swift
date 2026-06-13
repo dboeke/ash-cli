@@ -37,15 +37,60 @@ enum ShellIntegration {
         }
     }
 
-    private static func snippet(isFish: Bool) -> String {
-        let body = isFish
-            ? "command -q ash; and ash launch >/dev/null 2>&1"
-            : "command -v ash >/dev/null 2>&1 && ash launch >/dev/null 2>&1"
+    private static func snippet(for target: Target) -> String {
+        let shellArg = target.name == "custom" ? "zsh" : target.name
+        let body = target.isFish
+            ? "command -q ash; and ash init fish | source"
+            : "command -v ash >/dev/null 2>&1 && eval \"$(ash init \(shellArg))\""
         return "\(beginMarker)\n\(body)\n\(endMarker)"
     }
 
-    /// The line(s) a user can paste manually if their shell isn't recognized.
-    static var manualSnippet: String { snippet(isFish: false) }
+    /// The line a user can paste manually if their shell isn't recognized.
+    static var manualSnippet: String {
+        "command -v ash >/dev/null 2>&1 && eval \"$(ash init zsh)\""
+    }
+
+    /// The shell function + daemon warmup emitted by `ash init <shell>`. The
+    /// function adds inline injection: when ash chooses the "inject" action it
+    /// writes the command to ASH_INJECT_FILE, and this wrapper loads it at your
+    /// prompt (so it runs in your real shell, with full context, nothing copied).
+    static func initScript(for shell: String) -> String {
+        switch shell {
+        case "fish":
+            return """
+            function ash
+                set -l __ash_inj (command mktemp -t ash-inject)
+                ASH_INJECT_FILE=$__ash_inj command ash $argv
+                set -l __ash_rc $status
+                if test -s "$__ash_inj"
+                    commandline --replace -- (command cat -- "$__ash_inj")
+                end
+                command rm -f -- "$__ash_inj"
+                return $__ash_rc
+            end
+            command ash launch >/dev/null 2>&1
+            """
+        case "bash":
+            // bash cannot preload the prompt cleanly, so it has no wrapper:
+            // inject falls back to print + one-key copy. Just warm the daemon.
+            return "command ash launch >/dev/null 2>&1"
+        default:  // zsh
+            return """
+            ash() {
+              local __ash_inj
+              __ash_inj="$(command mktemp -t ash-inject)" || { command ash "$@"; return $? }
+              ASH_INJECT_FILE="$__ash_inj" command ash "$@"
+              local __ash_rc=$?
+              if [[ -s "$__ash_inj" ]]; then
+                print -rz -- "$(command cat -- "$__ash_inj")"
+              fi
+              command rm -f -- "$__ash_inj"
+              return $__ash_rc
+            }
+            command ash launch >/dev/null 2>&1
+            """
+        }
+    }
 
     /// Add the startup snippet. Returns a user-facing status message.
     static func enable() -> String {
@@ -57,7 +102,7 @@ enum ShellIntegration {
             return "Shell startup already configured in \(t.rcPath)."
         }
         let separator = (existing.isEmpty || existing.hasSuffix("\n")) ? "" : "\n"
-        let newContent = existing + separator + "\n" + snippet(isFish: t.isFish) + "\n"
+        let newContent = existing + separator + "\n" + snippet(for: t) + "\n"
         do {
             let dir = URL(fileURLWithPath: t.rcPath).deletingLastPathComponent()
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

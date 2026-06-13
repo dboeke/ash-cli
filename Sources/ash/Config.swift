@@ -10,8 +10,8 @@ struct Config: Codable {
     var daemon: Bool = false
     /// What to do with a command judged safe (read-only). Default: run it.
     var safeAction: Action = .run
-    /// What to do with a command judged risky. Default: show + copy, don't run.
-    var riskyAction: Action = .copy
+    /// What to do with a command judged risky. Default: load it at your prompt.
+    var riskyAction: Action = .inject
     /// Treat every command as safe: skip risk flagging entirely. Default: off.
     var yolo: Bool = false
     /// Append executed commands to the history log. Default: on.
@@ -35,7 +35,7 @@ struct Config: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         daemon = try c.decodeIfPresent(Bool.self, forKey: .daemon) ?? false
         safeAction = try c.decodeIfPresent(Action.self, forKey: .safeAction) ?? .run
-        riskyAction = try c.decodeIfPresent(Action.self, forKey: .riskyAction) ?? .copy
+        riskyAction = try c.decodeIfPresent(Action.self, forKey: .riskyAction) ?? .inject
         yolo = try c.decodeIfPresent(Bool.self, forKey: .yolo) ?? false
         logExecuted = try c.decodeIfPresent(Bool.self, forKey: .logExecuted) ?? true
         allow = try c.decodeIfPresent([String].self, forKey: .allow) ?? []

@@ -28,10 +28,12 @@ func printUsage() {
       ash config [<setting> <value>]
       ash history [N]             Show the last N executed commands (default 30).
       ash tools [refresh]         Show (or rescan) notable CLI tools ash detects.
+      ash init [zsh|bash|fish]    Print shell integration; add: eval "$(ash init zsh)"
       ash launch                  Ensure the daemon is running (instant; for shell startup).
 
     ACTION OPTIONS (override the per-run behavior):
       -r, --run               Execute the command.
+          --inject            Load the command at your shell prompt (needs `ash init`).
       -i, --confirm           Show the command and ask y/n before running.
       -c, --print-and-copy    Show the command and copy it to the clipboard (don't run).
       -p, --print             Show the command only (don't run, don't copy).
@@ -49,8 +51,8 @@ func printUsage() {
 
     CONFIG (~/.config/ash/config.json) - set defaults so you don't need flags:
       ash config daemon on|off
-      ash config safe-action  run|confirm|copy|print   (default: run)
-      ash config risky-action run|confirm|copy|print   (default: copy)
+      ash config safe-action  run|inject|confirm|copy|print   (default: run)
+      ash config risky-action run|inject|confirm|copy|print   (default: inject)
       ash config yolo on|off                            (default: off)
       ash config context off|light|full                (default: full)
       ash config metrics on|off                         (default: on)
@@ -76,10 +78,18 @@ if argv.first == "__daemon" {
     await Daemon.serve()
 }
 
-// `ash launch`: ensure the daemon is running and return instantly. Designed to
-// be called from shell startup files.
+// `ash launch`: ensure the daemon is running and return instantly. Only acts
+// when the daemon is enabled, so the shell-startup hook can call it always.
 if argv.first == "launch" {
-    Daemon.launch()
+    if Config.load().daemon { Daemon.launch() }
+    exit(0)
+}
+
+// `ash init <shell>`: print the shell integration (inject wrapper + daemon
+// warmup) for `eval "$(ash init zsh)"`. Defaults to zsh.
+if argv.first == "init" {
+    let shell = argv.dropFirst().first ?? "zsh"
+    print(ShellIntegration.initScript(for: shell))
     exit(0)
 }
 
@@ -146,12 +156,12 @@ if argv.first == "config" {
             Daemon.stop()
         }
     case "safe-action":
-        guard let a = Action.parse(value) else { err("ash: use run|copy|print"); exit(1) }
+        guard let a = Action.parse(value) else { err("ash: use run|inject|confirm|copy|print"); exit(1) }
         cfg.safeAction = a
         do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
         print("safe-action: \(a.label)")
     case "risky-action":
-        guard let a = Action.parse(value) else { err("ash: use run|copy|print"); exit(1) }
+        guard let a = Action.parse(value) else { err("ash: use run|inject|confirm|copy|print"); exit(1) }
         cfg.riskyAction = a
         do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
         print("risky-action: \(a.label)")
@@ -224,6 +234,7 @@ for a in argv {
     case "--help": printUsage(); exit(0)
     case "--version": print("ash \(version)"); exit(0)
     case "--run": actionOverride = .run
+    case "--inject": actionOverride = .inject
     case "--confirm": actionOverride = .confirm
     case "--print-and-copy": actionOverride = .copy
     case "--print": actionOverride = .print
@@ -323,6 +334,10 @@ if jsonOutput {
 let risky = flagged && !yolo
 let action = actionOverride ?? (risky ? cfg.riskyAction : cfg.safeAction)
 
+// Set by the shell wrapper (`ash init`); when present, inject hands the command
+// off to the shell to load at the prompt.
+let injectFile = ProcessInfo.processInfo.environment["ASH_INJECT_FILE"]
+
 func logIfEnabled() {
     if cfg.logExecuted { History.record(command: command, cwd: cwd, flagged: flagged) }
 }
@@ -335,6 +350,7 @@ if !quiet {
         let suffix: String
         switch action {
         case .run: suffix = "running anyway"
+        case .inject: suffix = injectFile != nil ? "loaded at your prompt" : "press enter to run"
         case .confirm: suffix = "will ask first"
         case .copy, .print: suffix = "not run"
         }
@@ -354,6 +370,31 @@ if !quiet {
 switch action {
 case .print:
     if quiet { print(command) }  // bare command, useful for piping
+
+case .inject:
+    if let injectFile {
+        // Hand the command to the shell wrapper to load at the prompt.
+        try? command.write(toFile: injectFile, atomically: true, encoding: .utf8)
+    } else if isatty(STDIN_FILENO) == 1 {
+        // No shell integration installed: offer to run it (in a subshell) or
+        // copy it, so we never clobber the clipboard without asking.
+        FileHandle.standardError.write(Data("  enter to run, c to copy, esc to skip: ".utf8))
+        let key = Runner.readKey()
+        print("")
+        switch key {
+        case "\r", "\n":
+            logIfEnabled()
+            if !quiet { print(Style.green("  running...")) }
+            exit(Runner.execute(command))
+        case "c", "C":
+            Runner.copyToClipboard(command)
+            if !quiet { print(Style.cyan("  copied to clipboard.")) }
+        default:  // esc or any other key
+            if !quiet { print(Style.dim("  skipped.")) }
+        }
+    } else if quiet {
+        print(command)  // non-interactive: emit the bare command for piping
+    }
 
 case .copy:
     Runner.copyToClipboard(command)

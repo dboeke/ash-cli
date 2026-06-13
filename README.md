@@ -91,6 +91,21 @@ swift build -c release
 cp .build/release/ash /usr/local/bin/ash
 ```
 
+### Shell integration (recommended)
+
+Add this to your `~/.zshrc`:
+
+```sh
+eval "$(ash init zsh)"
+```
+
+This sets up two things: ash can load a command directly at your prompt (see
+[Actions](#actions)), and the daemon stays warm in every terminal if you enable
+it. It is the same kind of one-line setup as zoxide or starship. Without it, ash
+still works, but risky commands fall back to a print-and-copy prompt instead of
+loading at your prompt. (bash and fish are supported too: use `ash init bash` or
+`ash init fish | source`.)
+
 ### Requirements
 
 - A Mac with Apple Silicon.
@@ -115,10 +130,20 @@ ash delete all files starting with tmp_     # shown + copied, not run
 
 ### Actions
 
-Override what ash does with the command it writes:
+ash decides what to do with the command based on risk. **Safe** commands run.
+**Risky** ones are loaded right at your shell prompt (with shell integration
+installed), so you read it, then press Enter to run it in your own shell or edit
+it first. Nothing is copied, and your clipboard is never touched.
+
+If shell integration is not installed, a risky command instead shows a one-key
+prompt: press Enter to run it, `c` to copy it, or Esc to skip. So even without
+setup, the clipboard is only touched if you ask.
+
+Override what ash does for a single command:
 
 ```
 ash -r   <request>   # run it
+ash --inject <req>   # load it at your prompt (the default for risky commands)
 ash -i   <request>   # show it, ask y/n, run if yes
 ash -c   <request>   # show and copy, do not run (alias: -n)
 ash -p   <request>   # show only
@@ -162,11 +187,11 @@ responses:
 ash config daemon on
 ```
 
-When enabled, ash adds a one-line hook to your shell startup file so the daemon
-is warm in every new terminal. It is fully user-space: no login item, no system
-approval, no background-item notification. It idles out after 30 minutes and
-respawns on demand. Turn it off with `ash config daemon off`, which also removes
-the hook.
+The daemon is warmed by the same `eval "$(ash init zsh)"` shell integration, so
+it is ready in every new terminal once you enable it. It is fully user-space: no
+login item, no system approval, no background-item notification. It idles out
+after 30 minutes and respawns on demand. `ash config daemon off` turns it back
+off.
 
 ## Safety model
 
@@ -175,8 +200,9 @@ non-destructive: read-only inspection (`ls`, `cat`, `find`, `grep`, `git
 status`, with mutating forms like `find -delete` and `sed -i` excluded) or
 additive creation (`mkdir`, `touch`, which only add reversible things).
 
-Everything else defaults to being shown and copied, not run. The worst case is
-you paste a command yourself rather than ash running something unexpected.
+Everything else defaults to being loaded at your prompt for you to run or edit,
+not executed for you. The worst case is a command waiting at your prompt rather
+than ash running something unexpected.
 
 ash does not try to predict whether a command needs `sudo`. A command that lacks
 permission simply fails with no effect, which is harmless. The genuine danger is
@@ -208,8 +234,8 @@ Show them with `ash config`:
 
 ```
 ash config daemon       on|off                     # warm daemon (default off)
-ash config safe-action  run|confirm|copy|print     # default: run
-ash config risky-action run|confirm|copy|print     # default: copy
+ash config safe-action  run|inject|confirm|copy|print   # default: run
+ash config risky-action run|inject|confirm|copy|print   # default: inject
 ash config context      off|light|full             # default: full
 ash config metrics      on|off                      # default: on
 ash config yolo         on|off                      # default: off
