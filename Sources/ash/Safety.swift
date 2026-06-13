@@ -33,19 +33,26 @@ enum Safety {
         "mkdir", "touch",
     ]
 
+    /// Risk tier of a command.
+    /// - safe: read-only or additive; eligible to auto-run.
+    /// - risky: not recognized as safe (unknown command, a write, a mutation).
+    /// - blocked: matched the denylist (destructive or privileged); highest tier.
+    enum Level { case safe, risky, blocked }
+
     /// Outcome of assessing a command.
     struct Assessment {
-        let isSafe: Bool       // safe to auto-run
-        let reason: String?    // why it's risky (nil when safe)
+        let level: Level
+        let reason: String?    // why it's not safe (nil when safe)
     }
 
     /// Assess a command. `extraSafe` are user-allowlisted command names;
-    /// `extraDanger` are user denylist substrings (lowercased match).
+    /// `extraDanger` are user denylist substrings (lowercased match). The
+    /// denylist is checked first and overrides the allowlist.
     static func assess(_ command: String,
                        extraSafe: [String] = [],
                        extraDanger: [String] = []) -> Assessment {
         if let reason = dangerReason(for: command, extraDanger: extraDanger) {
-            return Assessment(isSafe: false, reason: reason)
+            return Assessment(level: .blocked, reason: reason)
         }
 
         let allowedReadOnly = readOnlyCommands.union(extraSafe.map { $0.lowercased() })
@@ -53,7 +60,7 @@ enum Safety {
         for segment in command.components(separatedBy: "|") {
             let trimmed = segment.trimmingCharacters(in: .whitespaces)
             guard let first = trimmed.split(separator: " ").first else {
-                return Assessment(isSafe: false, reason: "empty command segment")
+                return Assessment(level: .risky, reason: "empty command segment")
             }
             let name = (String(first) as NSString).lastPathComponent
             let low = trimmed.lowercased()
@@ -62,30 +69,30 @@ enum Safety {
                 continue  // create-only: reversible, safe
             }
             guard allowedReadOnly.contains(name) else {
-                return Assessment(isSafe: false, reason: "this may modify files or system state")
+                return Assessment(level: .risky, reason: "this may modify files or system state")
             }
 
             switch name {
             case "find":
                 if low.contains("-delete") || low.contains("-exec") || low.contains("-ok") {
-                    return Assessment(isSafe: false, reason: "find can delete or run other commands")
+                    return Assessment(level: .risky, reason: "find can delete or run other commands")
                 }
             case "sed", "awk":
                 if low.contains("-i") {
-                    return Assessment(isSafe: false, reason: "in-place edit writes files")
+                    return Assessment(level: .risky, reason: "in-place edit writes files")
                 }
             case "git":
                 let readOnlyGit: Set<String> = ["status", "log", "diff", "show", "branch",
                                                 "remote", "blame", "describe", "tag", "shortlog"]
                 let parts = trimmed.split(separator: " ").map(String.init)
                 guard parts.count >= 2, readOnlyGit.contains(parts[1]) else {
-                    return Assessment(isSafe: false, reason: "git subcommand may change the repo")
+                    return Assessment(level: .risky, reason: "git subcommand may change the repo")
                 }
             default:
                 break
             }
         }
-        return Assessment(isSafe: true, reason: nil)
+        return Assessment(level: .safe, reason: nil)
     }
 
     /// Returns a human-readable reason the command is explicitly dangerous, or

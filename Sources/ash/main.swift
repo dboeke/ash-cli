@@ -52,8 +52,9 @@ func printUsage() {
     CONFIG (~/.config/ash/config.json) - set defaults so you don't need flags:
       ash config daemon on|off
       ash config daemon-timeout <minutes>               (0 = never; default: 0)
-      ash config safe-action  run|inject|confirm|copy|print   (default: run)
-      ash config risky-action run|inject|confirm|copy|print   (default: inject)
+      ash config safe-action    run|inject|confirm|copy|print  (default: run)
+      ash config risky-action   run|inject|confirm|copy|print  (default: inject)
+      ash config blocked-action run|inject|confirm|copy|print  (default: copy)
       ash config yolo on|off                            (default: off)
       ash config context off|light|full                (default: full)
       ash config metrics on|off                         (default: on)
@@ -127,6 +128,7 @@ if argv.first == "config" {
         print("daemon-timeout: \(cfg.daemonTimeout == 0 ? "none" : "\(cfg.daemonTimeout)m")")
         print("safe-action:  \(cfg.safeAction.label)")
         print("risky-action: \(cfg.riskyAction.label)")
+        print("blocked-action: \(cfg.blockedAction.label)")
         print("yolo:         \(cfg.yolo)")
         print("context:      \(cfg.context.rawValue)")
         print("metrics:      \(cfg.metrics)")
@@ -175,6 +177,11 @@ if argv.first == "config" {
         cfg.riskyAction = a
         do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
         print("risky-action: \(a.label)")
+    case "blocked-action":
+        guard let a = Action.parse(value) else { err("ash: use run|inject|confirm|copy|print"); exit(1) }
+        cfg.blockedAction = a
+        do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
+        print("blocked-action: \(a.label)")
     case "yolo":
         guard let on = parseBool(value) else { err("ash: use 'on' or 'off'"); exit(1) }
         cfg.yolo = on
@@ -208,7 +215,7 @@ if argv.first == "config" {
         do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
         print("deny: \(cfg.deny.joined(separator: ", "))")
     default:
-        err("ash: unknown setting '\(key)'. Try: daemon, daemon-timeout, safe-action, risky-action, yolo, context, metrics, log, allow, deny")
+        err("ash: unknown setting '\(key)'. Try: daemon, daemon-timeout, safe-action, risky-action, blocked-action, yolo, context, metrics, log, allow, deny")
         exit(1)
     }
     exit(0)
@@ -317,22 +324,25 @@ guard !command.isEmpty else {
 
 let yolo = yoloOverride ?? cfg.yolo
 
-// Safe to auto-run only if positively recognized as read-only or additive.
-// Anything else is "flagged"; we surface a reason whenever it is.
+// Classify into safe / risky / blocked (deterministic, not the model's opinion).
+// "flagged" means anything that is not plainly safe.
 let assessment = Safety.assess(command, extraSafe: cfg.allow, extraDanger: cfg.deny)
-let flagged = !assessment.isSafe
+let tier = assessment.level
+let flagged = tier != .safe
 let dangerReason = assessment.reason ?? "this may modify files or system state"
 
 // --json: emit the structured plan and exit, with no side effects.
 if jsonOutput {
     struct Out: Encodable {
         let command: String
+        let tier: String
         let risky: Bool
         let readonly: Bool
         let explanation: String
         let reason: String?
     }
-    let out = Out(command: command, risky: flagged, readonly: assessment.isSafe,
+    let tierName = tier == .safe ? "safe" : (tier == .blocked ? "blocked" : "risky")
+    let out = Out(command: command, tier: tierName, risky: flagged, readonly: tier == .safe,
                   explanation: plan.explanation, reason: assessment.reason)
     let enc = JSONEncoder()
     enc.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -340,9 +350,22 @@ if jsonOutput {
     exit(0)
 }
 
-// Risk drives action selection unless yolo suppresses it.
-let risky = flagged && !yolo
-let action = actionOverride ?? (risky ? cfg.riskyAction : cfg.safeAction)
+// Pick the action by tier:
+//  - safe:    the configured safe-action.
+//  - risky:   the configured risky-action; yolo demotes it to the safe-action.
+//  - blocked: the configured blocked-action (default copy). Per-run action flags
+//    do NOT lift this floor; only yolo does, and only to inject (loaded at the
+//    prompt, Enter required), never auto-run.
+let blockedFlagIgnored = tier == .blocked && actionOverride != nil && !yolo
+let action: Action
+switch tier {
+case .safe:
+    action = actionOverride ?? cfg.safeAction
+case .risky:
+    action = actionOverride ?? (yolo ? cfg.safeAction : cfg.riskyAction)
+case .blocked:
+    action = yolo ? .inject : cfg.blockedAction
+}
 
 // Set by the shell wrapper (`ash init`); when present, inject hands the command
 // off to the shell to load at the prompt.
@@ -365,6 +388,9 @@ if !quiet {
         case .copy, .print: suffix = "not run"
         }
         print(Style.yellow("  \u{26A0} \(dangerReason) - \(suffix)."))
+    }
+    if blockedFlagIgnored {
+        print(Style.dim("  (blocked: that action flag is ignored here; copy and paste, or use -y)"))
     }
     if cfg.metrics {
         var line = String(format: "%.1fs", elapsed)

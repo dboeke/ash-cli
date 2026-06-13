@@ -42,17 +42,21 @@ writes are accurate.
 
 ## Will it run something it shouldn't?
 
-That was my first worry too, so ash is cautious by default:
+That was my first worry too, so ash sorts every command into one of three tiers:
 
-- It runs a command on its own only when it recognizes every part as read-only
-  or harmlessly additive (`ls`, `grep`, `find`, `git status`, `mkdir`, and the
-  like).
-- Anything else, including anything it does not recognize, is loaded at your
-  prompt for you to read and run, never run silently.
-- A hard denylist always blocks auto-running destructive or privileged commands
-  (`rm`, `sudo`, `dd`, redirection that clobbers files, and more).
+- **Safe** (`ls`, `grep`, `find`, `git status`, `mkdir`, and the like): it just
+  runs, because these only read or add reversible things.
+- **Risky** (anything it does not recognize as safe, like a `mv` or an unknown
+  command): it loads the command at your prompt so you read it and press Enter,
+  never run silently.
+- **Blocked** (a denylist of the genuinely destructive or privileged: `rm`,
+  `sudo`, `dd`, clobbering `>`, and more): it will not load these at your prompt
+  or run them on an Enter. It copies the command so you have to paste it
+  yourself, a deliberate bit of friction. `yolo` lifts that, but even then a
+  blocked command still waits for an explicit Enter and never auto-runs.
 
-You can tighten or loosen this. See [Safety model](#safety-model).
+You can tune all of this, including adding your own commands to the denylist.
+See [Safety model](#safety-model).
 
 ## Install
 
@@ -203,29 +207,34 @@ ash config daemon-timeout 30   # exit after 30 idle minutes (0 = never, default)
 
 ## Safety model
 
-ash auto-runs a command only when it positively recognizes every part as
-non-destructive: read-only inspection (`ls`, `cat`, `find`, `grep`, `git
-status`, with mutating forms like `find -delete` and `sed -i` excluded) or
-additive creation (`mkdir`, `touch`, which only add reversible things).
+A deterministic check (not the model's opinion) sorts each command into a tier,
+and the tier picks what ash does. The defaults are graduated by how much could
+go wrong:
 
-Everything else defaults to being loaded at your prompt for you to run or edit,
-not executed for you. The worst case is a command waiting at your prompt rather
-than ash running something unexpected.
+| Tier | What it is | Default | With `yolo` |
+| --- | --- | --- | --- |
+| **safe** | read-only or additive (`ls`, `grep`, `git status`, `mkdir`; mutating forms like `find -delete` excluded) | run | run |
+| **risky** | anything not recognized as safe (a `mv`, an unknown command) | load at your prompt | run |
+| **blocked** | denylist of destructive or privileged commands (`rm`, `sudo`, `dd`, `mkfs`, clobbering `>`, command chaining, `git push`, and more) | copy, so you paste it yourself | load at your prompt |
+
+The blocked tier is the strict one. Per-run action flags like `-r` do not lift
+it; only `yolo` does, and even under `yolo` a blocked command is loaded at your
+prompt and waits for an explicit Enter. It never auto-runs.
 
 ash does not try to predict whether a command needs `sudo`. A command that lacks
-permission simply fails with no effect, which is harmless. The genuine danger is
-an explicit `sudo`, and that is on the denylist that always blocks auto-run,
-along with `rm`, `dd`, `mkfs`, `>` redirection, command chaining, disk and power
-operations, `curl`, `wget`, `git push`, and more.
+permission simply fails with no effect, which is harmless. The real danger is an
+explicit `sudo`, which is on the denylist.
 
-Extend either list yourself:
+You decide where the lines are. The actions are configurable, and you can extend
+the allowlist or the denylist (these are adults' tools, after all):
 
 ```sh
-ash config allow kubectl     # treat a command as safe to auto-run
-ash config deny  terraform   # always flag commands containing this
+ash config blocked-action inject   # or run / confirm / print, your call
+ash config allow kubectl           # treat a command as safe to auto-run
+ash config deny  terraform         # add a command to the blocked tier
 ```
 
-`yolo` mode runs everything, while still printing the danger reason first:
+`yolo` mode demotes every tier one notch, while still printing the danger reason:
 
 ```sh
 ash -y <request>             # for one command
@@ -242,8 +251,9 @@ Show them with `ash config`:
 
 ```
 ash config daemon       on|off                     # warm daemon (default off)
-ash config safe-action  run|inject|confirm|copy|print   # default: run
-ash config risky-action run|inject|confirm|copy|print   # default: inject
+ash config safe-action    run|inject|confirm|copy|print  # default: run
+ash config risky-action   run|inject|confirm|copy|print  # default: inject
+ash config blocked-action run|inject|confirm|copy|print  # default: copy
 ash config context      off|light|full             # default: full
 ash config metrics      on|off                      # default: on
 ash config yolo         on|off                      # default: off

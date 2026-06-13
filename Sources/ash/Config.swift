@@ -12,6 +12,9 @@ struct Config: Codable {
     var safeAction: Action = .run
     /// What to do with a command judged risky. Default: load it at your prompt.
     var riskyAction: Action = .inject
+    /// What to do with a denylisted command (the highest tier). Default: copy
+    /// only, so you paste it yourself. Per-run flags do not lift this; only yolo.
+    var blockedAction: Action = .copy
     /// Treat every command as safe: skip risk flagging entirely. Default: off.
     var yolo: Bool = false
     /// Append executed commands to the history log. Default: on.
@@ -31,7 +34,7 @@ struct Config: Codable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case daemon, safeAction, riskyAction, yolo, logExecuted, allow, deny, context, metrics, daemonTimeout
+        case daemon, safeAction, riskyAction, blockedAction, yolo, logExecuted, allow, deny, context, metrics, daemonTimeout
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +42,7 @@ struct Config: Codable {
         daemon = try c.decodeIfPresent(Bool.self, forKey: .daemon) ?? false
         safeAction = try c.decodeIfPresent(Action.self, forKey: .safeAction) ?? .run
         riskyAction = try c.decodeIfPresent(Action.self, forKey: .riskyAction) ?? .inject
+        blockedAction = try c.decodeIfPresent(Action.self, forKey: .blockedAction) ?? .copy
         yolo = try c.decodeIfPresent(Bool.self, forKey: .yolo) ?? false
         logExecuted = try c.decodeIfPresent(Bool.self, forKey: .logExecuted) ?? true
         allow = try c.decodeIfPresent([String].self, forKey: .allow) ?? []
