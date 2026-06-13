@@ -133,6 +133,7 @@ cannot build), `ash` can update itself:
 ```sh
 ash update           # download, verify, and replace if a newer release exists
 ash update --check   # just report the latest version, change nothing
+ash upgrade          # alias for ash update
 ```
 
 This is the only command in `ash` that touches the network, and it runs only when

@@ -31,6 +31,7 @@ func printUsage() {
       ash init [zsh|bash|fish]    Print shell integration; add: eval "$(ash init zsh)"
       ash launch                  Ensure the daemon is running (instant; for shell startup).
       ash update [--check]        Update ash to the latest signed release (the only network call).
+      ash upgrade                 Alias for ash update.
 
     ACTION OPTIONS (override the per-run behavior):
       -r, --run               Execute the command.
@@ -104,11 +105,11 @@ if argv.first == "history" {
     exit(0)
 }
 
-// `ash update [--check]`: the ONLY networked feature, and only because the user
-// typed it. Checks GitHub for a newer signed release and, unless --check,
-// verifies its signature and Team ID before atomically replacing the binary.
-// There is no automatic or background check anywhere - that stays a hard no.
-if argv.first == "update" {
+// `ash update [--check]` (alias: `ash upgrade`): the ONLY networked feature, and
+// only because the user typed it. Checks GitHub for a newer signed release and,
+// unless --check, verifies its signature and Team ID before atomically replacing
+// the binary. There is no automatic or background check anywhere - a hard no.
+if argv.first == "update" || argv.first == "upgrade" {
     let checkOnly = argv.dropFirst().contains("--check")
     let code = await Updater.run(check: checkOnly, currentVersion: version)
     exit(code)
