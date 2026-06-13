@@ -86,6 +86,67 @@ targets `.app`, `.pkg`, and `.dmg`). After notarization, Gatekeeper verifies the
 binary online the first time it runs, so it is not blocked. For fully offline
 trust, wrap the binary in a notarized `.pkg`. That is a future enhancement.
 
+## 3. Automated releases (GitHub Actions)
+
+`.github/workflows/release.yml` builds, signs, notarizes, and publishes a
+release whenever a `v*` tag is pushed (or via manual `workflow_dispatch`).
+
+### Why it needs a self-hosted runner
+
+GitHub-hosted macOS runners are macOS 14/15 and do not have the macOS 26 SDK
+that FoundationModels requires, so they cannot compile ash. You must register an
+Apple Silicon Mac running macOS 26 as a self-hosted runner:
+
+1. Repo Settings > Actions > Runners > New self-hosted runner, choose macOS /
+   arm64, and follow the configure/run steps on that Mac.
+2. The runner machine needs the Swift 6 toolchain (Xcode or Command Line Tools)
+   and the `gh` CLI on PATH.
+
+### Required repository secrets
+
+Set these under Settings > Secrets and variables > Actions (or with
+`gh secret set NAME`):
+
+| Secret | What it is |
+| --- | --- |
+| `SIGN_IDENTITY` | `Developer ID Application: David Boeke (3K58XWDQRF)` |
+| `DEVELOPER_ID_CERT_P12_BASE64` | Your Developer ID Application cert + private key, exported as `.p12` and base64-encoded |
+| `DEVELOPER_ID_CERT_PASSWORD` | The password you set when exporting the `.p12` |
+| `KEYCHAIN_PASSWORD` | Any random string; used for the temporary build keychain |
+| `NOTARY_API_KEY_BASE64` | App Store Connect API key `.p8`, base64-encoded |
+| `NOTARY_API_KEY_ID` | The API key's Key ID |
+| `NOTARY_API_ISSUER_ID` | The API key's Issuer ID |
+
+### Generating the secret values
+
+Export the signing certificate (Keychain Access > login > My Certificates >
+your Developer ID Application cert > right-click > Export as `.p12`):
+
+```sh
+base64 -i DeveloperID.p12 | pbcopy   # paste into DEVELOPER_ID_CERT_P12_BASE64
+```
+
+Create an App Store Connect API key (appstoreconnect.apple.com > Users and
+Access > Integrations > App Store Connect API). Give it a role that can notarize
+(Developer is sufficient), download the `.p8` once, and note its Key ID and
+Issuer ID:
+
+```sh
+base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy   # paste into NOTARY_API_KEY_BASE64
+```
+
+### Cutting a release
+
+```sh
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The workflow imports the cert into a throwaway keychain, runs
+`scripts/release.sh` (which signs with the hardened runtime and notarizes via
+the API key), publishes the release with the signed zip attached, and deletes
+the keychain and key afterward. Then update the Homebrew tap formula's `url` and
+`sha256` as in section 1.
+
 ## Note on pre-release macOS
 
 Homebrew does not support pre-release (beta) macOS versions and labels them a

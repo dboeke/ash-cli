@@ -51,15 +51,26 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
 fi
 
 echo "==> Code signing with: $SIGN_IDENTITY"
-# Hardened runtime + secure timestamp are required for notarization.
-codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$BIN"
+# Hardened runtime + secure timestamp are required for notarization. In CI,
+# ASH_SIGN_KEYCHAIN points codesign at a temporary keychain holding the cert,
+# so the login keychain search list is left untouched.
+keychain_arg=()
+[[ -n "${ASH_SIGN_KEYCHAIN:-}" ]] && keychain_arg=(--keychain "$ASH_SIGN_KEYCHAIN")
+codesign --force --options runtime --timestamp "${keychain_arg[@]}" --sign "$SIGN_IDENTITY" "$BIN"
 codesign --verify --strict --verbose=2 "$BIN"
 
 echo "==> Packaging $ZIP"
 package_zip
 
 echo "==> Notarizing (this can take a few minutes)"
-xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+# CI uses an App Store Connect API key (ASH_NOTARY_KEY/_KEY_ID/_ISSUER); local
+# runs use a stored keychain profile (ASH_NOTARY_PROFILE).
+if [[ -n "${ASH_NOTARY_KEY:-}" ]]; then
+  xcrun notarytool submit "$ZIP" \
+    --key "$ASH_NOTARY_KEY" --key-id "$ASH_NOTARY_KEY_ID" --issuer "$ASH_NOTARY_ISSUER" --wait
+else
+  xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+fi
 
 # A bare CLI binary cannot be stapled (stapling targets .app/.pkg/.dmg). After
 # notarization, Gatekeeper validates the binary online on first run, so it runs
