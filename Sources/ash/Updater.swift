@@ -228,6 +228,16 @@ enum Updater {
           catch { err("ash: update failed: \(error)"); return 1 }
 
         print(Style.green("updated to \(release.version)."))
+
+        // A swapped binary on disk does not change an already-running process, so
+        // the warm daemon would keep serving the OLD code (indefinitely when
+        // daemon-timeout is none). Restart it so the next request uses the new
+        // version. If it isn't enabled, stopping any stray daemon is harmless.
+        Daemon.stop()
+        if Config.load().daemon {
+            Daemon.launch()
+            print(Style.dim("restarted the daemon to load \(release.version)."))
+        }
         return 0
     }
 
