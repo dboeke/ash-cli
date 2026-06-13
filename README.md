@@ -36,7 +36,7 @@ friction.
 
 So `ash` uses Apple's on-device Foundation Models. There is no account, no API key,
 no telemetry, and no network call. The context `ash` reads to get a command right
-never leaves my laptop. Since there is no longer a privacy tradeoff, ash can lean
+never leaves my laptop. Since there is no longer a privacy tradeoff, `ash` can lean
 on it freely, which is a big part of why the commands it writes are accurate.
 
 ## Will it run something it shouldn't?
@@ -104,9 +104,9 @@ Add this to your `~/.zshrc`:
 eval "$(ash init zsh)"
 ```
 
-This sets up two things: ash can load a command directly at your prompt (see
+This sets up two things: `ash` can load a command directly at your prompt (see
 [Actions](#actions)), and the daemon stays warm in every terminal if you enable
-it. It is the same kind of one-line setup as zoxide or starship. Without it, ash
+it. It is the same kind of one-line setup as zoxide or starship. Without it, `ash`
 still works, but risky commands fall back to a one-key run/copy/skip prompt
 instead of loading at your prompt. (bash and fish are supported too: use
 `ash init bash` or `ash init fish | source`.)
@@ -144,7 +144,7 @@ If shell integration is not installed, a risky command instead shows a one-key
 prompt: press Enter to run it, `c` to copy it, or Esc to skip. So even without
 setup, the clipboard is only touched if you ask.
 
-Override what ash does for a single command:
+Override what `ash` does for a single command:
 
 ```
 ash -r   <request>   # run it
@@ -159,13 +159,13 @@ ash --json <request> # print the plan as JSON and exit
 
 Short flags combine, so `ash -qp count the files here` prints just the command.
 
-After each command ash prints a small dim line with how long it took and how
+After each command `ash` prints a small dim line with how long it took and how
 many tokens it used, like `1.6s · 1180 tokens`. Hide it with
 `ash config metrics off`.
 
 ### Context awareness
 
-Before each request, ash gathers local signals so the model writes commands
+Before each request, `ash` gathers local signals so the model writes commands
 grounded in reality instead of guessing:
 
 - your directory listing, so "open the screenshot" finds the real filename,
@@ -185,7 +185,7 @@ with `ash tools`. Tune the depth with `ash config context off|light|full`.
 
 Each `ash` call is a fresh process, and loading the model the first time takes a
 few seconds. You will notice this in the timing line. When the daemon is off,
-ash occasionally reminds you that you can turn it on for roughly one-second
+`ash` occasionally reminds you that you can turn it on for roughly one-second
 responses:
 
 ```sh
@@ -208,7 +208,7 @@ ash config daemon-timeout 30   # exit after 30 idle minutes (0 = never, default)
 ## Safety model
 
 A deterministic check (not the model's opinion) sorts each command into a tier,
-and the tier picks what ash does. The defaults are graduated by how much could
+and the tier picks what `ash` does. The defaults are graduated by how much could
 go wrong:
 
 | Tier | What it is | Default | With `yolo` |
@@ -221,7 +221,7 @@ The blocked tier is the strict one. Per-run action flags like `-r` do not lift
 it; only `yolo` does, and even under `yolo` a blocked command is loaded at your
 prompt and waits for an explicit Enter. It never auto-runs.
 
-ash does not try to predict whether a command needs `sudo`. A command that lacks
+`ash` does not try to predict whether a command needs `sudo`. A command that lacks
 permission simply fails with no effect, which is harmless. The real danger is an
 explicit `sudo`, which is on the denylist.
 
@@ -264,7 +264,7 @@ ash config deny  <pattern>
 
 ## How it works
 
-1. ash gathers local context (directory, git, project type, available tools).
+1. `ash` gathers local context (directory, git, project type, available tools).
 2. It asks the on-device model for one shell command plus a risk judgement,
    using guided generation so the output is structured, not free text.
 3. A deterministic allowlist, independent of the model, decides whether the
