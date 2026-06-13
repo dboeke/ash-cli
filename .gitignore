@@ -6,3 +6,6 @@ dist/
 
 # Internal notes, not for the public repo
 .claude/
+
+# Editor settings
+.vscode/
