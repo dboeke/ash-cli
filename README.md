@@ -28,16 +28,17 @@ $ ash list the 5 biggest files here
 
 ## It runs on your Mac, not in the cloud
 
-The whole point was to remove friction, and shipping my files off to a server is
-its own kind of friction, and its own kind of risk. The cloud tools I was using
-to get commands need an account, an API key, and a network round-trip, and to do
-a good job they really want to see your directory and your git state.
+To turn a plain request into the right command, ash needs to see what I am
+working on: the files in my directory, the kind of project it is, my git branch
+and status. I wanted that context to stay on my machine. It is the most
+sensitive part of my work, and sending it to someone else's server on every
+request is both a real privacy risk and its own kind of friction.
 
-ash uses Apple's on-device Foundation Models instead. There is no account, no API
-key, no telemetry, and no network call. What I type, and the files ash reads to
-get the command right, stay on my laptop. Being on-device is also what lets ash
-look at real context about your directory and installed tools without that being
-a privacy problem, which makes the commands it writes a lot more accurate.
+So ash uses Apple's on-device Foundation Models. There is no account, no API key,
+no telemetry, and no network call. The context ash reads to get a command right
+never leaves my laptop. And because using that context is no longer a privacy
+tradeoff, ash can lean on it freely, which is a big part of why the commands it
+writes are accurate.
 
 ## Will it run something it shouldn't?
 
