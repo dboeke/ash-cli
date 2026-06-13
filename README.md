@@ -1,19 +1,19 @@
 # ash - the agentic shell
 
-I have been using computers for fifty years, but almost all of that time was
+I have been using computers for forty years, but almost all of that time was
 spent in graphical interfaces. My Unix background is thin. Over the years I
 picked up just enough shell and command-line scripting to get the specific jobs
 I needed done, and not much more.
 
 So a few times a week I would hit the same wall. I knew exactly what I wanted the
 terminal to do, but I could not remember the flags. Was it `find -mtime` or
-`-ctime`? Which `tar` options this time? What is the BSD form of `stat`? My habit
-became opening ChatGPT or Claude, asking for the exact invocation, copying the
-answer, and pasting it into my terminal. It worked, but the friction added up.
+`-ctime`? Which `tar` options this time? What is the BSD form of `stat`?
+Prompting ChatGPT or Claude then copy and pasting it into my terminal is much 
+faster than reading man pages, but the friction still adds up.
 
-ash is what I built to skip that loop. I tell it what I want in plain English and
-it writes the command. Read-only commands it just runs. Anything that could
-change or delete something it loads right at my prompt, so I read it and decide
+`ash` is what I built to skip that loop. I tell it what I want in plain English and
+it writes the command. When the command is "safe" it just runs. Anything that could
+change or delete something is injected into my shell prompt, so I read and decide
 whether to press Enter.
 
 ```console
@@ -28,21 +28,20 @@ $ ash list the 5 biggest files here
 
 ## It runs on your Mac, not in the cloud
 
-To turn a plain request into the right command, ash needs to see what I am
-working on: the files in my directory, the kind of project it is, my git branch
-and status. I wanted that context to stay on my machine. It is the most
-sensitive part of my work, and sending it to someone else's server on every
-request is both a real privacy risk and its own kind of friction.
+To generate the right command `ash` needs to see what I am working on: 
+the files in my directory, the kind of project it is, my git branch
+and status. I wanted that context to stay on my machine, sending it to someone 
+else's server on every request is both a real privacy risk and its own kind of 
+friction.
 
-So ash uses Apple's on-device Foundation Models. There is no account, no API key,
-no telemetry, and no network call. The context ash reads to get a command right
-never leaves my laptop. And because using that context is no longer a privacy
-tradeoff, ash can lean on it freely, which is a big part of why the commands it
-writes are accurate.
+So `ash` uses Apple's on-device Foundation Models. There is no account, no API key,
+no telemetry, and no network call. The context `ash` reads to get a command right
+never leaves my laptop. Since there is no longer a privacy tradeoff, ash can lean 
+on it freely, which is a big part of why the commands it writes are accurate.
 
 ## Will it run something it shouldn't?
 
-That was my first worry too, so ash sorts every command into one of three tiers:
+`ash` sorts every command into one of three tiers:
 
 - **Safe** (`ls`, `grep`, `find`, `git status`, `mkdir`, and the like): it just
   runs, because these only read or add reversible things.
@@ -67,7 +66,7 @@ See [Safety model](#safety-model).
 brew install dboeke/tap/ash
 ```
 
-This builds ash from source on your machine, so the binary is never quarantined
+This builds `ash` from source on your machine, so the binary is never quarantined
 and runs immediately with no "downloaded from the internet" warning.
 
 > **On a macOS beta?** Homebrew does not support pre-release macOS (it treats it
@@ -136,7 +135,7 @@ ash delete all files starting with tmp_     # loaded at your prompt, not run
 
 ### Actions
 
-ash decides what to do with the command based on risk. **Safe** commands run.
+`ash` decides what to do with the command based on risk. **Safe** commands run.
 **Risky** ones are loaded right at your shell prompt (with shell integration
 installed), so you read it, then press Enter to run it in your own shell or edit
 it first. Nothing is copied, and your clipboard is never touched.
