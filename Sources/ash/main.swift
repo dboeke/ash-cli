@@ -51,6 +51,7 @@ func printUsage() {
 
     CONFIG (~/.config/ash/config.json) - set defaults so you don't need flags:
       ash config daemon on|off
+      ash config daemon-timeout <minutes>               (0 = never; default: 0)
       ash config safe-action  run|inject|confirm|copy|print   (default: run)
       ash config risky-action run|inject|confirm|copy|print   (default: inject)
       ash config yolo on|off                            (default: off)
@@ -123,6 +124,7 @@ if argv.first == "config" {
     if sub.isEmpty {
         let cfg = Config.load()
         print("daemon:       \(cfg.daemon)")
+        print("daemon-timeout: \(cfg.daemonTimeout == 0 ? "none" : "\(cfg.daemonTimeout)m")")
         print("safe-action:  \(cfg.safeAction.label)")
         print("risky-action: \(cfg.riskyAction.label)")
         print("yolo:         \(cfg.yolo)")
@@ -155,6 +157,14 @@ if argv.first == "config" {
             print(ShellIntegration.disable())
             Daemon.stop()
         }
+    case "daemon-timeout":
+        guard let minutes = Int(value), minutes >= 0 else {
+            err("ash: use a number of minutes (0 = no timeout)"); exit(1)
+        }
+        cfg.daemonTimeout = minutes
+        do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
+        print("daemon-timeout: \(minutes == 0 ? "none" : "\(minutes)m")")
+        if Config.load().daemon { Daemon.stop(); Daemon.launch() }  // restart to apply
     case "safe-action":
         guard let a = Action.parse(value) else { err("ash: use run|inject|confirm|copy|print"); exit(1) }
         cfg.safeAction = a
@@ -198,7 +208,7 @@ if argv.first == "config" {
         do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
         print("deny: \(cfg.deny.joined(separator: ", "))")
     default:
-        err("ash: unknown setting '\(key)'. Try: daemon, safe-action, risky-action, yolo, context, metrics, log, allow, deny")
+        err("ash: unknown setting '\(key)'. Try: daemon, daemon-timeout, safe-action, risky-action, yolo, context, metrics, log, allow, deny")
         exit(1)
     }
     exit(0)

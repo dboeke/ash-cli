@@ -24,11 +24,14 @@ struct Config: Codable {
     var context: ContextLevel = .full
     /// Show a timing + token-count line after each command. Default: on.
     var metrics: Bool = true
+    /// Minutes the daemon stays alive while idle before exiting. 0 = never
+    /// (stays until you stop it or reboot). Default: 0.
+    var daemonTimeout: Int = 0
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case daemon, safeAction, riskyAction, yolo, logExecuted, allow, deny, context, metrics
+        case daemon, safeAction, riskyAction, yolo, logExecuted, allow, deny, context, metrics, daemonTimeout
     }
 
     init(from decoder: Decoder) throws {
@@ -42,6 +45,7 @@ struct Config: Codable {
         deny = try c.decodeIfPresent([String].self, forKey: .deny) ?? []
         context = try c.decodeIfPresent(ContextLevel.self, forKey: .context) ?? .full
         metrics = try c.decodeIfPresent(Bool.self, forKey: .metrics) ?? true
+        daemonTimeout = try c.decodeIfPresent(Int.self, forKey: .daemonTimeout) ?? 0
     }
 
     // MARK: Paths

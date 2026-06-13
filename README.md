@@ -13,8 +13,8 @@ answer, and pasting it into my terminal. It worked, but the friction added up.
 
 ash is what I built to skip that loop. I tell it what I want in plain English and
 it writes the command. Read-only commands it just runs. Anything that could
-change or delete something it shows me and copies to my clipboard, so I decide
-whether to run it.
+change or delete something it loads right at my prompt, so I read it and decide
+whether to press Enter.
 
 ```console
 $ ash list the 5 biggest files here
@@ -46,8 +46,8 @@ That was my first worry too, so ash is cautious by default:
 - It runs a command on its own only when it recognizes every part as read-only
   or harmlessly additive (`ls`, `grep`, `find`, `git status`, `mkdir`, and the
   like).
-- Anything else, including anything it does not recognize, is shown and copied
-  for you to run yourself, never run silently.
+- Anything else, including anything it does not recognize, is loaded at your
+  prompt for you to read and run, never run silently.
 - A hard denylist always blocks auto-running destructive or privileged commands
   (`rm`, `sudo`, `dd`, redirection that clobbers files, and more).
 
@@ -118,14 +118,14 @@ loading at your prompt. (bash and fish are supported too: use `ash init bash` or
 ash <whatever you want to do>
 ```
 
-By default, safe commands run and risky ones are shown and copied. A few
+By default, safe commands run and risky ones are loaded at your prompt. A few
 examples:
 
 ```sh
 ash show me what changed in git today
 ash find every python file modified this week
 ash how much disk is the logs folder using
-ash delete all files starting with tmp_     # shown + copied, not run
+ash delete all files starting with tmp_     # loaded at your prompt, not run
 ```
 
 ### Actions
@@ -189,9 +189,16 @@ ash config daemon on
 
 The daemon is warmed by the same `eval "$(ash init zsh)"` shell integration, so
 it is ready in every new terminal once you enable it. It is fully user-space: no
-login item, no system approval, no background-item notification. It idles out
-after 30 minutes and respawns on demand. `ash config daemon off` turns it back
-off.
+login item, no system approval, no background-item notification. It uses only a
+few MB of memory (the model itself lives in a shared system service), so by
+default it stays running until you stop it or reboot. If you would rather it
+exit when idle, set a timeout:
+
+```sh
+ash config daemon-timeout 30   # exit after 30 idle minutes (0 = never, default)
+```
+
+`ash config daemon off` turns it back off entirely.
 
 ## Safety model
 

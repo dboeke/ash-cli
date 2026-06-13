@@ -19,7 +19,6 @@ enum Daemon {
     static let socketPath = Config.socketPath
     static var pidPath: String { Config.dir.appendingPathComponent("ashd.pid").path }
     static var lockPath: String { Config.dir.appendingPathComponent("ashd.lock").path }
-    private static let idleTimeoutSeconds: Double = 1800  // auto-exit after 30 min idle
 
     // Held open for the daemon's whole lifetime; the OS releases the flock when
     // the process dies, so it doubles as a robust "is a daemon alive?" signal.
@@ -65,14 +64,21 @@ enum Daemon {
         // Pay the one-time model load now so the first client request is warm.
         Interpreter.warmUp()
 
+        // Idle timeout in minutes from config; 0 means never exit on idle.
+        let idleMinutes = Config.load().daemonTimeout
+
         while true {
-            // Wait for a connection, but give up (and exit) after the idle window.
             var readSet = fd_set()
             fdZero(&readSet)
             fdSet(listenFD, &readSet)
-            var tv = timeval(tv_sec: Int(idleTimeoutSeconds), tv_usec: 0)
-            let ready = select(listenFD + 1, &readSet, nil, nil, &tv)
-            if ready == 0 { break }            // idle timeout -> shut down
+            let ready: Int32
+            if idleMinutes > 0 {
+                var tv = timeval(tv_sec: idleMinutes * 60, tv_usec: 0)
+                ready = select(listenFD + 1, &readSet, nil, nil, &tv)
+            } else {
+                ready = select(listenFD + 1, &readSet, nil, nil, nil)  // block until a connection
+            }
+            if ready == 0 { break }            // idle timeout reached -> shut down
             if ready < 0 { continue }
 
             let clientFD = accept(listenFD, nil, nil)
