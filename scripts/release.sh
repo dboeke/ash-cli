@@ -25,6 +25,18 @@ DIST="dist"
 BIN=".build/release/ash"
 ZIP="$DIST/ash-$VERSION-macos-arm64.zip"
 
+# Package the signed binary into a zip that contains just `ash` at the top level
+# (no wrapper directory), so users unzip straight to the executable.
+package_zip() {
+  local stage
+  stage="$(mktemp -d)"
+  cp "$BIN" "$stage/ash"
+  xattr -c "$stage/ash"   # drop quarantine/provenance xattrs so no ._ash in the zip
+  rm -f "$ZIP"
+  ditto -c -k --norsrc --noextattr "$stage/ash" "$ZIP"
+  rm -rf "$stage"
+}
+
 echo "==> Building release (arm64)"
 swift build -c release --arch arm64
 mkdir -p "$DIST"
@@ -33,7 +45,7 @@ if [[ -z "$SIGN_IDENTITY" ]]; then
   echo "!! ASH_SIGN_IDENTITY is not set: producing an UNSIGNED build."
   echo "!! Unsigned binaries downloaded from the web are quarantined by Gatekeeper."
   echo "!! Set up a Developer ID certificate (see RELEASING.md) to sign + notarize."
-  ditto -c -k --keepParent "$BIN" "$ZIP"
+  package_zip
   shasum -a 256 "$ZIP"
   exit 0
 fi
@@ -44,7 +56,7 @@ codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$BIN"
 codesign --verify --strict --verbose=2 "$BIN"
 
 echo "==> Packaging $ZIP"
-ditto -c -k --keepParent "$BIN" "$ZIP"
+package_zip
 
 echo "==> Notarizing (this can take a few minutes)"
 xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
