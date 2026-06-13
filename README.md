@@ -102,9 +102,9 @@ eval "$(ash init zsh)"
 This sets up two things: ash can load a command directly at your prompt (see
 [Actions](#actions)), and the daemon stays warm in every terminal if you enable
 it. It is the same kind of one-line setup as zoxide or starship. Without it, ash
-still works, but risky commands fall back to a print-and-copy prompt instead of
-loading at your prompt. (bash and fish are supported too: use `ash init bash` or
-`ash init fish | source`.)
+still works, but risky commands fall back to a one-key run/copy/skip prompt
+instead of loading at your prompt. (bash and fish are supported too: use
+`ash init bash` or `ash init fish | source`.)
 
 ### Requirements
 
@@ -258,7 +258,8 @@ ash config deny  <pattern>
    using guided generation so the output is structured, not free text.
 3. A deterministic allowlist, independent of the model, decides whether the
    command is safe to auto-run.
-4. Safe commands run in your current directory. Risky ones are shown and copied.
+4. Safe commands run in your current directory. Risky ones are loaded at your
+   shell prompt for you to run or edit.
 
 ## License
 
