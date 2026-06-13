@@ -68,7 +68,7 @@ enum Interpreter {
 
     /// Greedy decoding: deterministic, best for generating a precise command
     /// rather than creative text.
-    private static let options = GenerationOptions(sampling: .greedy)
+    private static let options = GenerationOptions(samplingMode: .greedy)
 
     /// Load the model into this process now, before the prompt is known.
     static func warmUp() {
