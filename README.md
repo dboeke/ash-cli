@@ -67,6 +67,13 @@ brew install dboeke/tap/ash
 This builds ash from source on your machine, so the binary is never quarantined
 and runs immediately with no "downloaded from the internet" warning.
 
+> **On a macOS beta?** Homebrew does not support pre-release macOS (it treats it
+> as a Tier 2 configuration) and `brew install` may fail with an Xcode or build
+> error, even though the source itself compiles fine. Use the signed download or
+> build from source below instead; both work on the beta. This affects only
+> people running a macOS beta. On stable macOS the Homebrew install works
+> normally.
+
 ### Signed download
 
 Grab the binary from the [latest release](https://github.com/dboeke/ash-cli/releases/latest).
@@ -74,7 +81,7 @@ It is signed with a Developer ID certificate and notarized by Apple, so it runs
 without any Gatekeeper warning.
 
 ```sh
-unzip ash-0.1.0-macos-arm64.zip
+unzip ash-*-macos-arm64.zip
 install -m 0755 ash /usr/local/bin/ash
 ```
 
