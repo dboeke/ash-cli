@@ -3,3 +3,6 @@ dist/
 .DS_Store
 *.xcodeproj
 .swiftpm/
+
+# Internal notes, not for the public repo
+.claude/
