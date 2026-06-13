@@ -8,7 +8,7 @@ I needed done, and not much more.
 So a few times a week I would hit the same wall. I knew exactly what I wanted the
 terminal to do, but I could not remember the flags. Was it `find -mtime` or
 `-ctime`? Which `tar` options this time? What is the BSD form of `stat`?
-Prompting ChatGPT or Claude then copy and pasting it into my terminal is much 
+Prompting ChatGPT or Claude then copy and pasting it into my terminal is much
 faster than reading man pages, but the friction still adds up.
 
 `ash` is what I built to skip that loop. I tell it what I want in plain English and
@@ -28,15 +28,15 @@ $ ash list the 5 biggest files here
 
 ## It runs on your Mac, not in the cloud
 
-To generate the right command `ash` needs to see what I am working on: 
+To generate the right command `ash` needs to see what I am working on:
 the files in my directory, the kind of project it is, my git branch
-and status. I wanted that context to stay on my machine, sending it to someone 
-else's server on every request is both a real privacy risk and its own kind of 
+and status. I wanted that context to stay on my machine, sending it to someone
+else's server on every request is both a real privacy risk and its own kind of
 friction.
 
 So `ash` uses Apple's on-device Foundation Models. There is no account, no API key,
 no telemetry, and no network call. The context `ash` reads to get a command right
-never leaves my laptop. Since there is no longer a privacy tradeoff, ash can lean 
+never leaves my laptop. Since there is no longer a privacy tradeoff, ash can lean
 on it freely, which is a big part of why the commands it writes are accurate.
 
 ## Will it run something it shouldn't?
