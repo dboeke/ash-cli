@@ -36,6 +36,8 @@ enum Interpreter {
     - In-place sed needs an arg: `sed -i ''`, never bare `sed -i`.
     - File size/format: `stat -f%z file` (BSD), never GNU `stat -c`.
     - Reverse a file with `tail -r`; `tac` is not installed.
+    - `head`/`tail` take a positive count only: `head -n 5`, never GNU \
+      `head -n -1`. To drop the last line use `sed '$d'`.
     - BSD `find` has no `-printf`; use `-print`/`-exec` or `stat`.
     - Colored ls is `ls -G`, not `ls --color`.
     - Use `grep -E` for extended regex; BSD grep has no `-P` (PCRE).
@@ -52,6 +54,8 @@ enum Interpreter {
     Examples (request -> command):
     list files in this directory in date order -> ls -lt
     list files including hidden ones -> ls -la
+    list directories here, newest first -> ls -dtl */
+    list all directories including hidden ones by modified date -> ls -dtl */ .*/
     show the 5 biggest files here -> du -ah . | sort -rh | head -n 5
     how much disk space is this folder using -> du -sh .
     find every python file changed in the last day -> find . -name '*.py' -mtime -1

@@ -30,6 +30,7 @@ func printUsage() {
       ash tools [refresh]         Show (or rescan) notable CLI tools ash detects.
       ash init [zsh|bash|fish]    Print shell integration; add: eval "$(ash init zsh)"
       ash launch                  Ensure the daemon is running (instant; for shell startup).
+      ash update [--check]        Update ash to the latest signed release (the only network call).
 
     ACTION OPTIONS (override the per-run behavior):
       -r, --run               Execute the command.
@@ -101,6 +102,16 @@ if argv.first == "history" {
     let out = History.tail(n)
     if out.isEmpty { print("(no history yet)") } else { print(out) }
     exit(0)
+}
+
+// `ash update [--check]`: the ONLY networked feature, and only because the user
+// typed it. Checks GitHub for a newer signed release and, unless --check,
+// verifies its signature and Team ID before atomically replacing the binary.
+// There is no automatic or background check anywhere - that stays a hard no.
+if argv.first == "update" {
+    let checkOnly = argv.dropFirst().contains("--check")
+    let code = await Updater.run(check: checkOnly, currentVersion: version)
+    exit(code)
 }
 
 // `ash tools [refresh]`: show (or rescan) the notable tools ash sees on PATH.
@@ -331,6 +342,13 @@ let tier = assessment.level
 let flagged = tier != .safe
 let dangerReason = assessment.reason ?? "this may modify files or system state"
 
+// Portability lint (correctness, not danger): macOS ships BSD tools, so a few
+// GNU-only flags the model sometimes emits fail at runtime. This is orthogonal
+// to the danger tiers above - it never blocks a command. Its only effect is to
+// keep an otherwise-safe command from silently auto-running into a BSD error
+// (see the action switch below); the note is surfaced so you can fix it.
+let portabilityNote = Portability.gnuism(in: command)
+
 // --json: emit the structured plan and exit, with no side effects.
 if jsonOutput {
     struct Out: Encodable {
@@ -340,10 +358,12 @@ if jsonOutput {
         let readonly: Bool
         let explanation: String
         let reason: String?
+        let portability: String?
     }
     let tierName = tier == .safe ? "safe" : (tier == .blocked ? "blocked" : "risky")
     let out = Out(command: command, tier: tierName, risky: flagged, readonly: tier == .safe,
-                  explanation: plan.explanation, reason: assessment.reason)
+                  explanation: plan.explanation, reason: assessment.reason,
+                  portability: portabilityNote)
     let enc = JSONEncoder()
     enc.outputFormatting = [.prettyPrinted, .sortedKeys]
     if let data = try? enc.encode(out) { print(String(decoding: data, as: UTF8.self)) }
@@ -360,7 +380,14 @@ let blockedFlagIgnored = tier == .blocked && actionOverride != nil && !yolo
 let action: Action
 switch tier {
 case .safe:
-    action = actionOverride ?? cfg.safeAction
+    // A BSD-incompatible command would fail if auto-run, so when the user hasn't
+    // overridden the action and the safe-action is to run, route it to a review
+    // (the risky-action) instead. Without a portability note this is unchanged.
+    if portabilityNote != nil, actionOverride == nil, cfg.safeAction == .run {
+        action = cfg.riskyAction
+    } else {
+        action = actionOverride ?? cfg.safeAction
+    }
 case .risky:
     action = actionOverride ?? (yolo ? cfg.safeAction : cfg.riskyAction)
 case .blocked:
@@ -388,6 +415,20 @@ if !quiet {
         case .copy, .print: suffix = "not run"
         }
         print(Style.yellow("  \u{26A0} \(dangerReason) - \(suffix)."))
+    }
+    if let note = portabilityNote {
+        if flagged {
+            print(Style.yellow("  \u{26A0} also BSD-incompatible: \(note)."))
+        } else {
+            let suffix: String
+            switch action {
+            case .run: suffix = "running anyway"
+            case .inject: suffix = injectFile != nil ? "loaded at your prompt to review" : "press enter to run"
+            case .confirm: suffix = "will ask first"
+            case .copy, .print: suffix = "not run"
+            }
+            print(Style.yellow("  \u{26A0} BSD-incompatible: \(note) - \(suffix)."))
+        }
     }
     if blockedFlagIgnored {
         print(Style.dim("  (blocked: that action flag is ignored here; copy and paste, or use -y)"))

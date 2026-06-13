@@ -35,9 +35,11 @@ else's server on every request is both a real privacy risk and its own kind of
 friction.
 
 So `ash` uses Apple's on-device Foundation Models. There is no account, no API key,
-no telemetry, and no network call. The context `ash` reads to get a command right
-never leaves my laptop. Since there is no longer a privacy tradeoff, `ash` can lean
-on it freely, which is a big part of why the commands it writes are accurate.
+and no telemetry, and `ash` makes no network call on its own. The context `ash` reads
+to get a command right never leaves my laptop. The one exception is `ash update`, which
+you run by hand to upgrade the binary (see [Updating](#updating)); nothing touches the
+network unless you type it. Since there is no longer a privacy tradeoff, `ash` can lean
+on the model freely, which is a big part of why the commands it writes are accurate.
 
 ## Will it run something it shouldn't?
 
@@ -116,6 +118,28 @@ instead of loading at your prompt. (bash and fish are supported too: use
 - A Mac with Apple Silicon.
 - macOS 26 or newer, with Apple Intelligence enabled in System Settings.
 - For building: the Swift 6 toolchain (Xcode or the Command Line Tools).
+
+## Updating
+
+If you installed with Homebrew, upgrade the normal way:
+
+```sh
+brew upgrade ash
+```
+
+If you used the signed download (or you are on a macOS beta, where Homebrew
+cannot build), `ash` can update itself:
+
+```sh
+ash update           # download, verify, and replace if a newer release exists
+ash update --check   # just report the latest version, change nothing
+```
+
+This is the only command in `ash` that touches the network, and it runs only when
+you type it. Before replacing the installed binary it verifies the download's Apple
+signature and developer Team ID, so a bad mirror or tampered release cannot land on
+your machine. It also refuses to touch a Homebrew-managed install; use `brew upgrade
+ash` there.
 
 ## Usage
 
