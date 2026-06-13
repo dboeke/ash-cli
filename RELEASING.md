@@ -87,66 +87,30 @@ binary online the first time it runs, so it is not blocked. The only gap is a
 first run while completely offline. We accept that and distribute the signed,
 notarized binary directly; ash does not ship a `.pkg`.
 
-## 3. Automated releases (GitHub Actions)
+## 3. One-command release (recommended)
 
-`.github/workflows/release.yml` builds, signs, notarizes, and publishes a
-release whenever a `v*` tag is pushed (or via manual `workflow_dispatch`).
-
-### Why it needs a self-hosted runner
-
-GitHub-hosted macOS runners are macOS 14/15 and do not have the macOS 26 SDK
-that FoundationModels requires, so they cannot compile ash. You must register an
-Apple Silicon Mac running macOS 26 as a self-hosted runner:
-
-1. Repo Settings > Actions > Runners > New self-hosted runner, choose macOS /
-   arm64, and follow the configure/run steps on that Mac.
-2. The runner machine needs the Swift 6 toolchain (Xcode or Command Line Tools)
-   and the `gh` CLI on PATH.
-
-### Required repository secrets
-
-Set these under Settings > Secrets and variables > Actions (or with
-`gh secret set NAME`):
-
-| Secret | What it is |
-| --- | --- |
-| `SIGN_IDENTITY` | `Developer ID Application: David Boeke (3K58XWDQRF)` |
-| `DEVELOPER_ID_CERT_P12_BASE64` | Your Developer ID Application cert + private key, exported as `.p12` and base64-encoded |
-| `DEVELOPER_ID_CERT_PASSWORD` | The password you set when exporting the `.p12` |
-| `KEYCHAIN_PASSWORD` | Any random string; used for the temporary build keychain |
-| `NOTARY_API_KEY_BASE64` | App Store Connect API key `.p8`, base64-encoded |
-| `NOTARY_API_KEY_ID` | The API key's Key ID |
-| `NOTARY_API_ISSUER_ID` | The API key's Issuer ID |
-
-### Generating the secret values
-
-Export the signing certificate (Keychain Access > login > My Certificates >
-your Developer ID Application cert > right-click > Export as `.p12`):
+Because the only machine that can build ash is a Mac with the macOS 26 SDK,
+releases are cut locally with a single script rather than CI. (A GitHub Actions
+workflow would need a self-hosted runner on this same Mac, which adds a
+background process for no real benefit until GitHub ships macOS 26 hosted
+runners.)
 
 ```sh
-base64 -i DeveloperID.p12 | pbcopy   # paste into DEVELOPER_ID_CERT_P12_BASE64
+make publish VERSION=0.2.0
 ```
 
-Create an App Store Connect API key (appstoreconnect.apple.com > Users and
-Access > Integrations > App Store Connect API). Give it a role that can notarize
-(Developer is sufficient), download the `.p8` once, and note its Key ID and
-Issuer ID:
+This runs `scripts/publish.sh`, which:
 
-```sh
-base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy   # paste into NOTARY_API_KEY_BASE64
-```
+1. sets the version in `Sources/ash/main.swift` (and commits) if it changed,
+2. tags `v0.2.0` and pushes,
+3. builds, signs, and notarizes the binary (`scripts/release.sh`, using your
+   Developer ID cert and the `ash-notary` notarytool profile),
+4. creates the GitHub release with the signed zip attached,
+5. updates the Homebrew tap formula's `url` and `sha256` and pushes the tap.
 
-### Cutting a release
-
-```sh
-git tag v0.2.0 && git push origin v0.2.0
-```
-
-The workflow imports the cert into a throwaway keychain, runs
-`scripts/release.sh` (which signs with the hardened runtime and notarizes via
-the API key), publishes the release with the signed zip attached, and deletes
-the keychain and key afterward. Then update the Homebrew tap formula's `url` and
-`sha256` as in section 1.
+Prerequisites: the Developer ID cert in your keychain, the `ash-notary` profile
+from section 2, `gh` authenticated, and a local clone of the tap (a sibling
+`homebrew-tap` directory, or set `ASH_TAP_DIR`).
 
 ## Note on pre-release macOS
 
