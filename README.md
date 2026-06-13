@@ -120,7 +120,7 @@ Override what ash does with the command it writes:
 ```
 ash -r   <request>   # run it
 ash -i   <request>   # show it, ask y/n, run if yes
-ash -pc  <request>   # show and copy, do not run (alias: -n)
+ash -c   <request>   # show and copy, do not run (alias: -n)
 ash -p   <request>   # show only
 ash -y   <request>   # run even if it looks dangerous (prints a warning first)
 ash -q   <request>   # no narration; just run, or print the bare command
@@ -128,6 +128,10 @@ ash --json <request> # print the plan as JSON and exit
 ```
 
 Short flags combine, so `ash -qp count the files here` prints just the command.
+
+After each command ash prints a small dim line with how long it took and how
+many tokens it used, like `1.6s · 1180 tokens`. Hide it with
+`ash config metrics off`.
 
 ### Context awareness
 
@@ -150,7 +154,9 @@ with `ash tools`. Tune the depth with `ash config context off|light|full`.
 ### Speed: the optional daemon
 
 Each `ash` call is a fresh process, and loading the model the first time takes a
-few seconds. Turn on a warm background daemon for roughly one-second responses:
+few seconds. You will notice this in the timing line. When the daemon is off,
+ash occasionally reminds you that you can turn it on for roughly one-second
+responses:
 
 ```sh
 ash config daemon on
@@ -205,6 +211,7 @@ ash config daemon       on|off                     # warm daemon (default off)
 ash config safe-action  run|confirm|copy|print     # default: run
 ash config risky-action run|confirm|copy|print     # default: copy
 ash config context      off|light|full             # default: full
+ash config metrics      on|off                      # default: on
 ash config yolo         on|off                      # default: off
 ash config log          on|off                      # default: on
 ash config allow <command>

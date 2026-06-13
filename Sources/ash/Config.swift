@@ -22,11 +22,13 @@ struct Config: Codable {
     var deny: [String] = []
     /// How much environment context to feed the model. Default: full.
     var context: ContextLevel = .full
+    /// Show a timing + token-count line after each command. Default: on.
+    var metrics: Bool = true
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case daemon, safeAction, riskyAction, yolo, logExecuted, allow, deny, context
+        case daemon, safeAction, riskyAction, yolo, logExecuted, allow, deny, context, metrics
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +41,7 @@ struct Config: Codable {
         allow = try c.decodeIfPresent([String].self, forKey: .allow) ?? []
         deny = try c.decodeIfPresent([String].self, forKey: .deny) ?? []
         context = try c.decodeIfPresent(ContextLevel.self, forKey: .context) ?? .full
+        metrics = try c.decodeIfPresent(Bool.self, forKey: .metrics) ?? true
     }
 
     // MARK: Paths

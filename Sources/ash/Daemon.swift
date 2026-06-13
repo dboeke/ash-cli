@@ -8,6 +8,7 @@ private struct WireRequest: Codable {
 }
 private struct WireResponse: Codable {
     var plan: Plan?
+    var tokens: Int?
     var error: String?
 }
 
@@ -132,7 +133,9 @@ enum Daemon {
         }
         var resp = WireResponse()
         do {
-            resp.plan = try await Interpreter.plan(for: req.request, context: req.context)
+            let interp = try await Interpreter.plan(for: req.request, context: req.context)
+            resp.plan = interp.plan
+            resp.tokens = interp.tokens
         } catch {
             resp.error = "\(error)"
         }
@@ -145,7 +148,7 @@ enum Daemon {
     // MARK: - Client
 
     /// Ask the daemon for a Plan, spawning it if it isn't already running.
-    static func requestPlan(request: String, context: String) async throws -> Plan {
+    static func requestPlan(request: String, context: String) async throws -> Interpretation {
         var fd = connect()
         if fd < 0 {
             try spawn()
@@ -165,7 +168,7 @@ enum Daemon {
         let resp = try JSONDecoder().decode(WireResponse.self, from: data)
         if let err = resp.error { throw DaemonError.remote(err) }
         guard let plan = resp.plan else { throw DaemonError.noResponse }
-        return plan
+        return Interpretation(plan: plan, tokens: resp.tokens)
     }
 
     enum DaemonError: Error, CustomStringConvertible {

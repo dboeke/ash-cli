@@ -77,10 +77,14 @@ enum Interpreter {
     }
 
     /// Produce a Plan for a request, given a gathered environment context block.
-    static func plan(for request: String, context: String) async throws -> Plan {
+    static func plan(for request: String, context: String) async throws -> Interpretation {
         let session = LanguageModelSession(instructions: baseInstructions)
         let prompt = "\(context)\nRequest: \(request)"
         let response = try await session.respond(to: prompt, generating: Plan.self, options: options)
-        return response.content
+        var tokens: Int? = nil
+        if #available(macOS 27.0, *) {
+            tokens = response.usage.totalTokenCount
+        }
+        return Interpretation(plan: response.content, tokens: tokens)
     }
 }

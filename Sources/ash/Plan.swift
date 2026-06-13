@@ -1,5 +1,12 @@
 import FoundationModels
 
+/// What interpreting a request produced: the plan, plus how long it took and how
+/// many tokens it used (tokens are available on macOS 27+, nil otherwise).
+struct Interpretation {
+    let plan: Plan
+    let tokens: Int?
+}
+
 /// The structured result the on-device model produces for a natural-language request.
 @Generable
 struct Plan: Codable {

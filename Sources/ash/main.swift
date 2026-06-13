@@ -33,7 +33,7 @@ func printUsage() {
     ACTION OPTIONS (override the per-run behavior):
       -r, --run               Execute the command.
       -i, --confirm           Show the command and ask y/n before running.
-      -pc, --print-and-copy   Show the command and copy it to the clipboard (don't run).
+      -c, --print-and-copy    Show the command and copy it to the clipboard (don't run).
       -p, --print             Show the command only (don't run, don't copy).
       -n, --dry-run           Alias for --print-and-copy.
       -y, --yolo              Run even if the command looks dangerous.
@@ -53,6 +53,7 @@ func printUsage() {
       ash config risky-action run|confirm|copy|print   (default: copy)
       ash config yolo on|off                            (default: off)
       ash config context off|light|full                (default: full)
+      ash config metrics on|off                         (default: on)
       ash config log on|off                             (default: on)
       ash config allow <command>      Treat a command as safe to auto-run.
       ash config deny <pattern>       Always flag commands containing <pattern>.
@@ -60,7 +61,7 @@ func printUsage() {
 
     EXAMPLES:
       ash list files in this directory in date order
-      ash -pc delete all logs older than a week
+      ash -c delete all logs older than a week
       ash config safe-action confirm   # always ask before running
       ash -qp count the files here     # print just the bare command, for scripts
     """)
@@ -116,6 +117,7 @@ if argv.first == "config" {
         print("risky-action: \(cfg.riskyAction.label)")
         print("yolo:         \(cfg.yolo)")
         print("context:      \(cfg.context.rawValue)")
+        print("metrics:      \(cfg.metrics)")
         print("log:          \(cfg.logExecuted)")
         print("allow:        \(cfg.allow.isEmpty ? "(none)" : cfg.allow.joined(separator: ", "))")
         print("deny:         \(cfg.deny.isEmpty ? "(none)" : cfg.deny.joined(separator: ", "))")
@@ -166,6 +168,11 @@ if argv.first == "config" {
         cfg.context = level
         do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
         print("context: \(cfg.context.rawValue)")
+    case "metrics":
+        guard let on = parseBool(value) else { err("ash: use 'on' or 'off'"); exit(1) }
+        cfg.metrics = on
+        do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
+        print("metrics: \(cfg.metrics)")
     case "log":
         guard let on = parseBool(value) else { err("ash: use 'on' or 'off'"); exit(1) }
         cfg.logExecuted = on
@@ -181,7 +188,7 @@ if argv.first == "config" {
         do { try cfg.save() } catch { err("ash: could not save config: \(error)"); exit(1) }
         print("deny: \(cfg.deny.joined(separator: ", "))")
     default:
-        err("ash: unknown setting '\(key)'. Try: daemon, safe-action, risky-action, yolo, context, log, allow, deny")
+        err("ash: unknown setting '\(key)'. Try: daemon, safe-action, risky-action, yolo, context, metrics, log, allow, deny")
         exit(1)
     }
     exit(0)
@@ -202,6 +209,7 @@ let applyShort: (Character) -> Bool = { ch in
     case "v": print("ash \(version)"); exit(0)
     case "r": actionOverride = .run
     case "i": actionOverride = .confirm
+    case "c": actionOverride = .copy
     case "p": actionOverride = .print
     case "n": actionOverride = .copy
     case "y": yoloOverride = true
@@ -217,7 +225,7 @@ for a in argv {
     case "--version": print("ash \(version)"); exit(0)
     case "--run": actionOverride = .run
     case "--confirm": actionOverride = .confirm
-    case "-pc", "--print-and-copy": actionOverride = .copy
+    case "--print-and-copy": actionOverride = .copy
     case "--print": actionOverride = .print
     case "--dry-run": actionOverride = .copy
     case "--yolo": yoloOverride = true
@@ -230,7 +238,7 @@ for a in argv {
         // Single or combined short flags: -q, -p, -qp, -iy, etc. Only when every
         // character is a known flag; otherwise it's part of the request text.
         let body = a.dropFirst()
-        if a.first == "-", a.count >= 2, body.allSatisfy({ "hvripnyq".contains($0) }) {
+        if a.first == "-", a.count >= 2, body.allSatisfy({ "hvripnyqc".contains($0) }) {
             for ch in body { _ = applyShort(ch) }
         } else {
             rest.append(a)
@@ -254,10 +262,11 @@ let useDaemon = Config.useDaemon(cliOverride: daemonOverride)
 // leaves the machine.
 let contextBlock = Context.gather(cwd: cwd, level: cfg.context)
 
-let plan: Plan
+let interpretStart = Date()
+let interpretation: Interpretation
 do {
     if useDaemon {
-        plan = try await Daemon.requestPlan(request: request, context: contextBlock)
+        interpretation = try await Daemon.requestPlan(request: request, context: contextBlock)
     } else {
         switch SystemLanguageModel.default.availability {
         case .available:
@@ -268,12 +277,14 @@ do {
             exit(2)
         }
         Interpreter.warmUp()
-        plan = try await Interpreter.plan(for: request, context: contextBlock)
+        interpretation = try await Interpreter.plan(for: request, context: contextBlock)
     }
 } catch {
     err("ash: could not interpret request: \(error)")
     exit(1)
 }
+let elapsed = Date().timeIntervalSince(interpretStart)
+let plan = interpretation.plan
 
 // MARK: - Decide: run it, or show + copy
 
@@ -328,6 +339,15 @@ if !quiet {
         case .copy, .print: suffix = "not run"
         }
         print(Style.yellow("  \u{26A0} \(dangerReason) - \(suffix)."))
+    }
+    if cfg.metrics {
+        var line = String(format: "%.1fs", elapsed)
+        if let tokens = interpretation.tokens { line += " \u{00B7} \(tokens) tokens" }
+        print(Style.dim("  \(line)"))
+    }
+    // Nudge toward the daemon when running in-process and it isn't enabled.
+    if !useDaemon && !cfg.daemon && Hints.due("daemon") {
+        print(Style.dim("  tip: turn on the daemon for faster responses: ash config daemon on"))
     }
 }
 
