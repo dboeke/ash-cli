@@ -86,6 +86,21 @@ targets `.app`, `.pkg`, and `.dmg`). After notarization, Gatekeeper verifies the
 binary online the first time it runs, so it is not blocked. For fully offline
 trust, wrap the binary in a notarized `.pkg`. That is a future enhancement.
 
+## Note on pre-release macOS
+
+Homebrew does not support pre-release (beta) macOS versions and labels them a
+Tier 2 configuration. On a beta macOS, `brew install` source builds can fail in
+Homebrew's build environment even when a plain `swift build` of the same source
+succeeds, because Homebrew's explicit-modules build path trips on the beta SDK.
+This affects only people running a macOS beta. On stable macOS the source build
+through Homebrew works normally. As a fallback on a beta machine, build and
+install directly:
+
+```sh
+swift build -c release --arch arm64
+install -m 0755 .build/release/ash /opt/homebrew/bin/ash
+```
+
 ## Requirements recap
 
 - Apple Silicon Mac, macOS 26+, Apple Intelligence enabled (runtime).
