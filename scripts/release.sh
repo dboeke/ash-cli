@@ -74,8 +74,8 @@ fi
 
 # A bare CLI binary cannot be stapled (stapling targets .app/.pkg/.dmg). After
 # notarization, Gatekeeper validates the binary online on first run, so it runs
-# without the "unidentified developer" block. For fully offline trust, ship a
-# notarized .pkg instead (a future enhancement; noted in RELEASING.md).
+# without the "unidentified developer" block. We accept the online check and do
+# not ship a .pkg.
 
 echo "==> Done"
 shasum -a 256 "$ZIP"

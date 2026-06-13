@@ -83,8 +83,9 @@ local testing.
 
 A bare CLI binary cannot have a notarization ticket stapled to it (stapling
 targets `.app`, `.pkg`, and `.dmg`). After notarization, Gatekeeper verifies the
-binary online the first time it runs, so it is not blocked. For fully offline
-trust, wrap the binary in a notarized `.pkg`. That is a future enhancement.
+binary online the first time it runs, so it is not blocked. The only gap is a
+first run while completely offline. We accept that and distribute the signed,
+notarized binary directly; ash does not ship a `.pkg`.
 
 ## 3. Automated releases (GitHub Actions)
 
