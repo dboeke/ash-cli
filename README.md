@@ -1,6 +1,20 @@
 # ash - the agentic shell
 
-**Type what you want. ash writes the command.**
+I have been using computers for fifty years, but almost all of that time was
+spent in graphical interfaces. My Unix background is thin. Over the years I
+picked up just enough shell and command-line scripting to get the specific jobs
+I needed done, and not much more.
+
+So a few times a week I would hit the same wall. I knew exactly what I wanted the
+terminal to do, but I could not remember the flags. Was it `find -mtime` or
+`-ctime`? Which `tar` options this time? What is the BSD form of `stat`? My habit
+became opening ChatGPT or Claude, asking for the exact invocation, copying the
+answer, and pasting it into my terminal. It worked, but the friction added up.
+
+ash is what I built to skip that loop. I tell it what I want in plain English and
+it writes the command. Read-only commands it just runs. Anything that could
+change or delete something it shows me and copies to my clipboard, so I decide
+whether to run it.
 
 ```console
 $ ash list the 5 biggest files here
@@ -12,49 +26,32 @@ $ ash list the 5 biggest files here
   ...
 ```
 
-ash turns plain English into the right shell command using an on-device Apple
-Intelligence model. Safe, read-only commands run automatically. Anything risky
-is shown and copied to your clipboard so you stay in control. It runs entirely
-on your Mac, so nothing you type ever leaves the machine.
+## It runs on your Mac, not in the cloud
 
-## The problem
+The whole point was to remove friction, and shipping my files off to a server is
+its own kind of friction, and its own kind of risk. The cloud tools I was using
+to get commands need an account, an API key, and a network round-trip, and to do
+a good job they really want to see your directory and your git state.
 
-You know what you want the computer to do. You just can't always remember the
-exact incantation. Was it `find . -mtime -7` or `-ctime`? Does `tar` use `-z`
-here? What is the BSD flag for `stat`? So you stop, open a browser, search,
-copy a half-right answer from a forum, and paste it back.
+ash uses Apple's on-device Foundation Models instead. There is no account, no API
+key, no telemetry, and no network call. What I type, and the files ash reads to
+get the command right, stay on my laptop. Being on-device is also what lets ash
+look at real context about your directory and installed tools without that being
+a privacy problem, which makes the commands it writes a lot more accurate.
 
-Cloud AI assistants can write the command, but to do it well they need to see
-your files, your directory layout, your git state. Sending all of that to a
-remote server is a real privacy and security cost, and it means an API key, an
-account, a subscription, and a network round-trip on every request.
+## Will it run something it shouldn't?
 
-ash removes both problems at once.
+That was my first worry too, so ash is cautious by default:
 
-## Why it is safe: everything stays on your Mac
-
-ash uses Apple's on-device Foundation Models. There is no server, no API key,
-no account, and no telemetry. Your request, your filenames, and your git state
-are read locally, handed to a model running on your own machine, and never sent
-anywhere.
-
-That on-device design is not just a privacy nicety. It is what lets ash be
-genuinely useful: it can feed the model real context about your directory and
-tools precisely because that context never leaves your laptop. A cloud tool
-would have to upload your file listing to match it.
-
-Running model-written commands still deserves caution, so ash is conservative by
-default:
-
-- It auto-runs a command **only** if it positively recognizes every part as
-  read-only or harmlessly additive (`ls`, `grep`, `find`, `git status`,
-  `mkdir`, and similar).
+- It runs a command on its own only when it recognizes every part as read-only
+  or harmlessly additive (`ls`, `grep`, `find`, `git status`, `mkdir`, and the
+  like).
 - Anything else, including anything it does not recognize, is shown and copied
-  for you to run yourself, never executed silently.
-- A hard denylist always blocks auto-run of destructive or privileged commands
+  for you to run yourself, never run silently.
+- A hard denylist always blocks auto-running destructive or privileged commands
   (`rm`, `sudo`, `dd`, redirection that clobbers files, and more).
 
-You can tighten or relax this to taste. See [Safety model](#safety-model).
+You can tighten or loosen this. See [Safety model](#safety-model).
 
 ## Install
 
