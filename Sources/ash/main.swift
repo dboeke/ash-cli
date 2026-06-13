@@ -433,9 +433,23 @@ case .inject:
     }
 
 case .copy:
-    Runner.copyToClipboard(command)
-    if quiet { print(command) }
-    else { print(Style.cyan("  copied to clipboard. Paste to run it yourself.")) }
+    if tier == .blocked && isatty(STDIN_FILENO) == 1 && !quiet {
+        // Blocked commands are never auto-copied: you press c to copy, then
+        // paste yourself. That keystroke is the deliberate friction.
+        FileHandle.standardError.write(Data("  press c to copy, any other key to skip: ".utf8))
+        let key = Runner.readKey()
+        print("")
+        if key == "c" || key == "C" {
+            Runner.copyToClipboard(command)
+            print(Style.cyan("  copied to clipboard. Paste to run it yourself."))
+        } else {
+            print(Style.dim("  skipped."))
+        }
+    } else {
+        Runner.copyToClipboard(command)
+        if quiet { print(command) }
+        else { print(Style.cyan("  copied to clipboard. Paste to run it yourself.")) }
+    }
 
 case .confirm:
     guard isatty(STDIN_FILENO) == 1 else {

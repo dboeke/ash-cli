@@ -51,9 +51,10 @@ That was my first worry too, so ash sorts every command into one of three tiers:
   never run silently.
 - **Blocked** (a denylist of the genuinely destructive or privileged: `rm`,
   `sudo`, `dd`, clobbering `>`, and more): it will not load these at your prompt
-  or run them on an Enter. It copies the command so you have to paste it
-  yourself, a deliberate bit of friction. `yolo` lifts that, but even then a
-  blocked command still waits for an explicit Enter and never auto-runs.
+  or run them on an Enter. It shows the command and makes you press `c` to copy
+  it, then paste it yourself. That keystroke is deliberate friction, and your
+  clipboard is never touched unless you ask. `yolo` lifts the floor, but even
+  then a blocked command still waits for an explicit Enter and never auto-runs.
 
 You can tune all of this, including adding your own commands to the denylist.
 See [Safety model](#safety-model).
@@ -215,7 +216,7 @@ go wrong:
 | --- | --- | --- | --- |
 | **safe** | read-only or additive (`ls`, `grep`, `git status`, `mkdir`; mutating forms like `find -delete` excluded) | run | run |
 | **risky** | anything not recognized as safe (a `mv`, an unknown command) | load at your prompt | run |
-| **blocked** | denylist of destructive or privileged commands (`rm`, `sudo`, `dd`, `mkfs`, clobbering `>`, command chaining, `git push`, and more) | copy, so you paste it yourself | load at your prompt |
+| **blocked** | denylist of destructive or privileged commands (`rm`, `sudo`, `dd`, `mkfs`, clobbering `>`, command chaining, `git push`, and more) | shown; press `c` to copy, then paste it yourself | load at your prompt |
 
 The blocked tier is the strict one. Per-run action flags like `-r` do not lift
 it; only `yolo` does, and even under `yolo` a blocked command is loaded at your
