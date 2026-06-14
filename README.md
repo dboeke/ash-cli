@@ -270,14 +270,14 @@ All settings live in `~/.config/ash/config.json` and have sensible defaults.
 Show them with `ash config`:
 
 ```
-ash config daemon       on|off                     # warm daemon (default off)
+ash config daemon         on|off                         # warm daemon (default off)
 ash config safe-action    run|inject|confirm|copy|print  # default: run
 ash config risky-action   run|inject|confirm|copy|print  # default: inject
 ash config blocked-action run|inject|confirm|copy|print  # default: copy
-ash config context      off|light|full             # default: full
-ash config metrics      on|off                      # default: on
-ash config yolo         on|off                      # default: off
-ash config log          on|off                      # default: on
+ash config context        off|light|full                 # default: full
+ash config metrics        on|off                         # default: on
+ash config yolo           on|off                         # default: off
+ash config log            on|off                         # default: on
 ash config allow <command>
 ash config deny  <pattern>
 ```
