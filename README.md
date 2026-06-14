@@ -1,20 +1,20 @@
 # ash - the agentic shell
 
-I have been using computers for forty years, but almost all of that time was
-spent in graphical interfaces. My Unix background is thin. Over the years I
-picked up just enough shell and command-line scripting to get the specific jobs
-I needed done, and not much more.
+Over the years I have picked up just enough shell and command-line scripting to get
+the specific jobs I needed done, and not much more. I have developed muscle memory
+for most common commands, but I still have to look up specific tool commands and
+flags for less common use cases.
 
-So a few times a week I would hit the same wall. I knew exactly what I wanted the
-terminal to do, but I could not remember the flags. Was it `find -mtime` or
-`-ctime`? Which `tar` options this time? What is the BSD form of `stat`?
-Prompting ChatGPT or Claude then copy and pasting it into my terminal is much
-faster than reading man pages, but the friction still adds up.
+It's so frustrating to know exactly what I want the terminal to do, but fail to
+remember the flags needed to do it. Was it `find -mtime` or `-ctime`? Which `tar`
+options this time? What is the BSD form of `stat`? Prompting ChatGPT or Claude then
+copy and pasting it into my terminal is much faster than reading man pages, but the
+friction still adds up.
 
 `ash` is what I built to skip that loop. I tell it what I want in plain English and
 it writes the command. When the command is "safe" it just runs. Anything that could
 change or delete something is injected into my shell prompt, so I read and decide
-whether to press Enter.
+whether to execute it.
 
 ```console
 $ ash list the 5 biggest files here
@@ -28,28 +28,26 @@ $ ash list the 5 biggest files here
 
 ## It runs on your Mac, not in the cloud
 
-To generate the right command `ash` needs to see what I am working on:
-the files in my directory, the kind of project it is, my git branch
-and status. I wanted that context to stay on my machine, sending it to someone
-else's server on every request is both a real privacy risk and its own kind of
-friction.
+To generate accurate commands `ash` needs to see what I am working on: the files in
+my directory, the kind of project it is, my git branch and status. I wanted that
+context to stay on my machine, sending it to someone else's server on every request
+is both a real privacy risk and its own kind of friction.
 
-So `ash` uses Apple's on-device Foundation Models. There is no account, no API key,
-and no telemetry, and `ash` makes no network call on its own. The context `ash` reads
-to get a command right never leaves my laptop. The one exception is `ash update`, which
-you run by hand to upgrade the binary (see [Updating](#updating)); nothing touches the
-network unless you type it. Since there is no longer a privacy tradeoff, `ash` can lean
-on the model freely, which is a big part of why the commands it writes are accurate.
+`ash` uses Apple's on-device Foundation Models. There is no account, no API keys,
+and no telemetry. `ash` makes no network call on its own. The context `ash` reads
+never leaves my laptop. The one exception is `ash update`, an optional helper cmd
+to check for updates and upgrade the binary on demand (see [Updating](#updating)).
+Since there are no privacy tradeoffs, `ash` can share deep context freely with
+the model, which contributes to the accuracy of generated commands.
 
 ## Will it run something it shouldn't?
 
-`ash` sorts every command into one of three tiers:
+`ash` triages commands into one of three tiers:
 
 - **Safe** (`ls`, `grep`, `find`, `git status`, `mkdir`, and the like): it just
   runs, because these only read or add reversible things.
 - **Risky** (anything it does not recognize as safe, like a `mv` or an unknown
-  command): it loads the command at your prompt so you read it and press Enter,
-  never run silently.
+  command): it loads the command at your prompt so you read it before executing.
 - **Blocked** (a denylist of the genuinely destructive or privileged: `rm`,
   `sudo`, `dd`, clobbering `>`, and more): it will not load these at your prompt
   or run them on an Enter. It shows the command and makes you press `c` to copy
@@ -67,9 +65,6 @@ See [Safety model](#safety-model).
 ```sh
 brew install dboeke/tap/ash
 ```
-
-This builds `ash` from source on your machine, so the binary is never quarantined
-and runs immediately with no "downloaded from the internet" warning.
 
 > **On a macOS beta?** Homebrew does not support pre-release macOS (it treats it
 > as a Tier 2 configuration) and `brew install` may fail with an Xcode or build
@@ -251,7 +246,7 @@ permission simply fails with no effect, which is harmless. The real danger is an
 explicit `sudo`, which is on the denylist.
 
 You decide where the lines are. The actions are configurable, and you can extend
-the allowlist or the denylist (these are adults' tools, after all):
+the allowlist or the denylist:
 
 ```sh
 ash config blocked-action inject   # or run / confirm / print, your call
